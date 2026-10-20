@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmogNet — Air Quality Intelligence</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d2e;
+    --accent: #6c63ff;
+    --accent2: #00d2ff;
+    --danger: #ff4757;
+    --warn: #ffa502;
+    --ok: #2ed573;
+    --text: #e0e0e0;
+    --muted: #8a8fa0;
+    --border: #2a2d3e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+
+  header {
+    background: linear-gradient(135deg, #1a1d2e, #0f1117);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .logo { font-size: 1.6rem; font-weight: 800; background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .tagline { color: var(--muted); font-size: 0.85rem; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media(max-width:768px){ .container { grid-template-columns: 1fr; } }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
+  h2 { font-size: 1rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; }
+
+  .field { margin-bottom: 14px; }
+  label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 5px; }
+  input, select {
+    width: 100%; background: #0f1117; border: 1px solid var(--border);
+    color: var(--text); padding: 9px 12px; border-radius: 8px; font-size: 0.9rem;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .btn {
+    width: 100%; background: linear-gradient(135deg, var(--accent), #857dff);
+    color: white; border: none; padding: 13px; border-radius: 10px;
+    font-size: 1rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; margin-top: 8px;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .result-card { display: none; }
+  .result-card.visible { display: block; }
+
+  .spike-badge {
+    display: inline-block; padding: 6px 16px; border-radius: 20px;
+    font-weight: 700; font-size: 0.95rem; margin-bottom: 16px;
+  }
+  .spike-1 { background: rgba(255,71,87,0.15); color: var(--danger); border: 1px solid var(--danger); }
+  .spike-0 { background: rgba(46,213,115,0.15); color: var(--ok); border: 1px solid var(--ok); }
+
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .stat-row:last-child { border: none; }
+  .stat-label { color: var(--muted); font-size: 0.85rem; }
+  .stat-value { font-weight: 600; font-size: 0.95rem; }
+
+  .risk-Critical { color: var(--danger); }
+  .risk-High { color: #ff6b6b; }
+  .risk-Moderate { color: var(--warn); }
+  .risk-Low { color: var(--ok); }
+
+  .prob-bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 4px; }
+  .prob-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+
+  .alert-box { background: rgba(108,99,255,0.08); border: 1px solid rgba(108,99,255,0.3); border-radius: 10px; padding: 14px; margin-top: 16px; font-size: 0.9rem; line-height: 1.6; }
+
+  .loading { text-align: center; padding: 40px; color: var(--muted); display: none; }
+  .spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .sim-log { max-height: 200px; overflow-y: auto; font-size: 0.78rem; font-family: monospace; color: var(--muted); background: #0a0c12; border-radius: 8px; padding: 12px; margin-top: 12px; }
+  .sim-log .spike { color: var(--danger); }
+  .sim-log .ok { color: var(--ok); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">🌫️ SmogNet</div>
+    <div class="tagline">AI-Powered Air Quality Intelligence System</div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Input Form -->
+  <div class="card">
+    <h2>📊 Pollution Input</h2>
+
+    <div class="field">
+      <label>City</label>
+      <select id="city">
+        <option>Lahore</option><option>Karachi</option><option>Islamabad</option>
+        <option>Faisalabad</option><option>Multan</option><option>Peshawar</option>
+        <option>Quetta</option><option>Rawalpindi</option>
+      </select>
+    </div>
+
+    <div class="grid2">
+      <div class="field"><label>CO (μg/m³)</label><input type="number" id="co" value="0.5" step="0.1"></div>
+      <div class="field"><label>NO (μg/m³)</label><input type="number" id="no" value="0.1" step="0.1"></div>
+      <div class="field"><label>NO₂ (μg/m³)</label><input type="number" id="no2" value="15" step="0.5"></div>
+      <div class="field"><label>O₃ (μg/m³)</label><input type="number" id="o3" value="80" step="1"></div>
+      <div class="field"><label>SO₂ (μg/m³)</label><input type="number" id="so2" value="5" step="0.5"></div>
+      <div class="field"><label>PM2.5 (μg/m³)</label><input type="number" id="pm25" value="35" step="1"></div>
+      <div class="field"><label>PM10 (μg/m³)</label><input type="number" id="pm10" value="50" step="1"></div>
+      <div class="field"><label>NH₃ (μg/m³)</label><input type="number" id="nh3" value="2" step="0.1"></div>
+      <div class="field"><label>Temperature (°C)</label><input type="number" id="temp" value="25" step="0.5"></div>
+      <div class="field"><label>Humidity (%)</label><input type="number" id="humidity" value="60" step="1"></div>
+      <div class="field"><label>Hour (0–23)</label><input type="number" id="hour" value="14" min="0" max="23"></div>
+      <div class="field"><label>Month (1–12)</label><input type="number" id="month" value="11" min="1" max="12"></div>
+    </div>
+
+    <div class="field">
+      <label>Day of Week (0=Mon … 6=Sun)</label>
+      <select id="dow">
+        <option value="0">Monday</option><option value="1">Tuesday</option>
+        <option value="2">Wednesday</option><option value="3">Thursday</option>
+        <option value="4">Friday</option><option value="5">Saturday</option>
+        <option value="6">Sunday</option>
+      </select>
+    </div>
+
+    <button class="btn" onclick="runPrediction()">🔍 Predict Air Quality</button>
+  </div>
+
+  <!-- Result Panel -->
+  <div>
+    <div class="card loading" id="loading">
+      <div class="spinner"></div>
+      <p style="margin-top:12px">Analyzing pollution data…</p>
+    </div>
+
+    <div class="card result-card" id="result">
+      <h2>🧠 Prediction Result</h2>
+      <div id="spike-badge"></div>
+
+      <div class="stat-row">
+        <span class="stat-label">City</span>
+        <span class="stat-value" id="r-city">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Spike Probability</span>
+        <span class="stat-value" id="r-prob">—</span>
+      </div>
+      <div class="prob-bar"><div class="prob-fill" id="r-prob-bar" style="width:0%"></div></div>
+
+      <div class="stat-row" style="margin-top:10px">
+        <span class="stat-label">Pollution Source</span>
+        <span class="stat-value" id="r-source">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Risk Level</span>
+        <span class="stat-value" id="r-risk">—</span>
+      </div>
+
+      <div class="alert-box" id="r-alert"></div>
+    </div>
+
+    <!-- Simulation Panel -->
+    <div class="card" style="margin-top:24px">
+      <h2>⚡ Simulation Mode</h2>
+      <p style="color:var(--muted);font-size:0.85rem;margin-bottom:14px">Auto-generate random pollution readings and run continuous predictions.</p>
+      <button class="btn" id="sim-btn" onclick="toggleSim()">▶ Start Simulation</button>
+      <div class="sim-log" id="sim-log">Simulation output will appear here...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = "http://localhost:8000";
+let simInterval = null;
+
+async function runPrediction() {
+  const body = {
+    city: document.getElementById('city').value,
+    components_co: +document.getElementById('co').value,
+    components_no: +document.getElementById('no').value,
+    components_no2: +document.getElementById('no2').value,
+    components_o3: +document.getElementById('o3').value,
+    components_so2: +document.getElementById('so2').value,
+    components_pm2_5: +document.getElementById('pm25').value,
+    components_pm10: +document.getElementById('pm10').value,
+    components_nh3: +document.getElementById('nh3').value,
+    temperature_2m: +document.getElementById('temp').value,
+    relative_humidity_2m: +document.getElementById('humidity').value,
+    hour: +document.getElementById('hour').value,
+    month: +document.getElementById('month').value,
+    dayofweek: +document.getElementById('dow').value
+  };
+
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('result').classList.remove('visible');
+
+  try {
+    const res = await fetch(`${API}/predict`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    displayResult(data);
+  } catch(e) {
+    alert('API Error: ' + e.message + '\n\nMake sure the backend is running at ' + API);
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+
+function displayResult(data) {
+  document.getElementById('r-city').textContent = data.city;
+  document.getElementById('r-source').textContent = data.source;
+  
+  const pct = (data.probability * 100).toFixed(1);
+  document.getElementById('r-prob').textContent = pct + '%';
+  
+  const bar = document.getElementById('r-prob-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = data.spike ? 'var(--danger)' : 'var(--ok)';
+
+  const risk = document.getElementById('r-risk');
+  risk.textContent = data.risk_level;
+  risk.className = 'stat-value risk-' + data.risk_level;
+
+  const badge = document.getElementById('spike-badge');
+  badge.textContent = data.spike ? '⚠️ SPIKE DETECTED' : '✅ AIR QUALITY NORMAL';
+  badge.className = 'spike-badge spike-' + data.spike;
+
+  document.getElementById('r-alert').textContent = data.alert;
+  document.getElementById('result').classList.add('visible');
+}
+
+function randomSample() {
+  const highSmog = Math.random() > 0.5;
+  return {
+    city: ['Lahore','Karachi','Faisalabad','Multan'][Math.floor(Math.random()*4)],
+    components_co: +(Math.random() * (highSmog ? 3 : 0.8)).toFixed(2),
+    components_no: +(Math.random() * (highSmog ? 15 : 3)).toFixed(2),
+    components_no2: +(Math.random() * (highSmog ? 60 : 20)).toFixed(1),
+    components_o3: +(50 + Math.random() * 80).toFixed(1),
+    components_so2: +(Math.random() * (highSmog ? 25 : 8)).toFixed(1),
+    components_pm2_5: +(Math.random() * (highSmog ? 150 : 40)).toFixed(1),
+    components_pm10: +(Math.random() * (highSmog ? 200 : 70)).toFixed(1),
+    components_nh3: +(Math.random() * (highSmog ? 12 : 4)).toFixed(1),
+    temperature_2m: +(10 + Math.random() * 30).toFixed(1),
+    relative_humidity_2m: +(30 + Math.random() * 60).toFixed(0),
+    hour: Math.floor(Math.random() * 24),
+    month: Math.floor(1 + Math.random() * 12),
+    dayofweek: Math.floor(Math.random() * 7)
+  };
+}
+
+function toggleSim() {
+  if (simInterval) {
+    clearInterval(simInterval);
+    simInterval = null;
+    document.getElementById('sim-btn').textContent = '▶ Start Simulation';
+  } else {
+    document.getElementById('sim-btn').textContent = '⏹ Stop Simulation';
+    runSimStep();
+    simInterval = setInterval(runSimStep, 3000);
+  }
+}
+
+async function runSimStep() {
+  const sample = randomSample();
+  const log = document.getElementById('sim-log');
+  try {
+    const res = await fetch(`${API}/predict`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(sample)
+    });
+    const data = await res.json();
+    const t = new Date().toLocaleTimeString();
+    const cls = data.spike ? 'spike' : 'ok';
+    const icon = data.spike ? '🔴' : '🟢';
+    log.innerHTML = `<span class="${cls}">[${t}] ${icon} ${data.city} | Spike: ${data.spike} | P: ${(data.probability*100).toFixed(1)}% | ${data.source} | ${data.risk_level}</span>\n` + log.innerHTML;
+    if (data.spike) displayResult(data);
+  } catch(e) {
+    log.innerHTML = `<span style="color:var(--warn)">[ERR] ${e.message}</span>\n` + log.innerHTML;
+  }
+}
+</script>
+</body>
+</html>
